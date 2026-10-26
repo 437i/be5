@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:18
-    container_name: be4-postgres
+    container_name: be5-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -18,13 +18,13 @@ services:
       retries: 10
       start_period: 10s
     networks:
-      - be4
+      - be5
 
   migrate:
     build:
       context: ./api
       target: migrate
-    container_name: be4-migrate
+    container_name: be5-migrate
     environment:
       GOOSE_DRIVER: postgres
       GOOSE_DBSTRING: "host=postgres port=5432 user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB} sslmode=disable"
@@ -35,11 +35,11 @@ services:
         condition: service_healthy
     restart: "no"
     networks:
-      - be4
+      - be5
 
   db-init:
     image: postgres:18
-    container_name: be4-db-init
+    container_name: be5-db-init
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -57,13 +57,13 @@ services:
         condition: service_completed_successfully
     restart: "no"
     networks:
-      - be4
+      - be5
 
   pgadmin:
     image: dpage/pgadmin4:9.18
-    container_name: be4-pgadmin
+    container_name: be5-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@be4.io
+      PGADMIN_DEFAULT_EMAIL: admin@be5.io
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
@@ -75,13 +75,13 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - be4
+      - be5
 
   api:
     build: 
       context: ./api
       target: runtime
-    container_name: be4-api
+    container_name: be5-api
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -91,12 +91,21 @@ services:
       PORT: "8080"
       AUTH_GRPC_HOST: auth
       AUTH_GRPC_PORT: "50051"
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: product.events
+      KAFKA_GROUP_ID: gateway-api
+      CONSUMER_ENABLED: "true"
+      REDIS_ADDR: redis:6379
     ports:
       - "8080:8080"
     depends_on:
       db-init:
         condition: service_completed_successfully
       auth:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -110,13 +119,13 @@ services:
       retries: 10
       start_period: 5s
     networks:
-      - be4
+      - be5
 
   api-ro-1:
     build:
       context: ./api
       target: runtime
-    container_name: be4-api-ro-1
+    container_name: be5-api-ro-1
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -126,12 +135,16 @@ services:
       PORT: "8081"
       AUTH_GRPC_HOST: auth
       AUTH_GRPC_PORT: "50051"
+      CONSUMER_ENABLED: "false"
+      REDIS_ADDR: redis:6379
     ports:
       - "8081:8081"
     depends_on:
       db-init:
         condition: service_completed_successfully
       auth:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -145,13 +158,13 @@ services:
       retries: 10
       start_period: 5s
     networks:
-      - be4
+      - be5
     
   api-ro-2:
     build:
       context: ./api
       target: runtime
-    container_name: be4-api-ro-2
+    container_name: be5-api-ro-2
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -161,12 +174,16 @@ services:
       PORT: "8082"
       AUTH_GRPC_HOST: auth
       AUTH_GRPC_PORT: "50051"
+      CONSUMER_ENABLED: "false"
+      REDIS_ADDR: redis:6379
     ports:
       - "8082:8082"
     depends_on:
       db-init:
         condition: service_completed_successfully
       auth:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -180,11 +197,11 @@ services:
       retries: 10
       start_period: 5s
     networks:
-      - be4
+      - be5
 
   nginx:
     image: nginx:alpine
-    container_name: be4-nginx
+    container_name: be5-nginx
     ports:
       - "80:80"
       - "443:443"
@@ -204,11 +221,11 @@ services:
         condition: service_started
     restart: unless-stopped
     networks:
-      - be4
+      - be5
 
   auth-postgres:
     image: postgres:18
-    container_name: be4-auth-postgres
+    container_name: be5-auth-postgres
     environment:
       POSTGRES_DB: ${AUTH_POSTGRES_DB}
       POSTGRES_USER: ${AUTH_POSTGRES_USER}
@@ -223,14 +240,14 @@ services:
       retries: 10
       start_period: 10s
     networks:
-      - be4
+      - be5
 
   auth:
     build:
       context: .
       dockerfile: service_auth/Dockerfile
       target: runtime
-    container_name: be4-auth
+    container_name: be5-auth
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-postgres:5432/${AUTH_POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${AUTH_POSTGRES_USER}
@@ -251,10 +268,102 @@ services:
       retries: 10
       start_period: 40s
     networks:
-      - be4
+      - be5
+
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: be5-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - "29092:29092"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092 > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    networks:
+      - be5
+
+  kafka-init:
+    image: apache/kafka:3.9.0
+    container_name: be5-kafka-init
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092
+        --create --if-not-exists
+        --topic product.events --partitions 3 --replication-factor 1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - be5
+
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: be5-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: be5
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "127.0.0.1:8090:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - be5
+
+  redis:
+    image: redis:7-alpine
+    container_name: be5-redis
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
+    expose:
+      - "6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - be5
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: be5-redisinsight
+    environment:
+      RI_REDIS_HOST: redis
+      RI_REDIS_PORT: "6379"
+      RI_REDIS_ALIAS: be5-cache
+    ports:
+      - "127.0.0.1:5540:5540"
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - be5
 
 networks:
-  be4:
+  be5:
     driver: bridge
 
 volumes:
@@ -262,3 +371,4 @@ volumes:
   pgadmin_data:
   nginx_cache:
   auth_postgres_data:
+  redisinsight_data:
