@@ -1,15 +1,13 @@
 package service_generator.event_generator;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 import service_generator.dto.ProductAttributeChangedEvent;
 import service_generator.entity.ProductEntity;
 //import service_generator.repository.ProductRepository;
-import service_generator.service.ProductService;
+import service_generator.service.ProductServiceImpl;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -18,7 +16,6 @@ import java.time.ZoneOffset;
 import java.util.Random;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 
 @Component
@@ -27,7 +24,7 @@ public class ProductEventGenerator {
 
     private static final String TOPIC = "product-attributes-changed";
 
-    private final ProductService productService; // ваш репозиторий
+    private final ProductServiceImpl productServiceImpl; // ваш репозиторий
     //    private final ProductEntity productEntity;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final Random random = new Random();
@@ -35,7 +32,7 @@ public class ProductEventGenerator {
     @Scheduled(fixedDelay = 10000) // каждые 10 секунд после завершения предыдущего
     public void generateEvent() {
         // 1. Берем случайный товар (упрощенно — через список ID или random offset в БД)
-        List<ProductEntity> products = productService.findAll();
+        List<ProductEntity> products = productServiceImpl.findAll();
         if (products.isEmpty()) return;
 
         ProductEntity productEntity = products.get(random.nextInt(products.size()));
@@ -53,7 +50,7 @@ public class ProductEventGenerator {
         productEntity.setAvailableStock(newStock);
 //        productRepository.save(productEntity);
 
-        int updated = productService.updatePriceAndStock(
+        int updated = productServiceImpl.updatePriceAndStock(
                 productEntity.getId(), newPrice, newStock, LocalDate.now(ZoneOffset.UTC));
         if (updated == 0) {
             return;
