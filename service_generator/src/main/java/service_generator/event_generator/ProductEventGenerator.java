@@ -2,9 +2,10 @@ package service_generator.event_generator;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import service_generator.dao.ProductDaoImpl;
 import service_generator.dto.ProductAttributeChangedEvent;
 import service_generator.snapshot.ProductSnapshot;
@@ -18,22 +19,24 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-@Component
 @Slf4j
+@Service
 @RequiredArgsConstructor
 public class ProductEventGenerator {
 
-    private static final String TOPIC = "product-attributes-changed";
+    @Value("${generator.topic}")
+    private String topic;
 
     private final ProductDaoImpl productDao;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    @Scheduled(fixedDelay = 10000) // каждые 10 секунд после завершения предыдущего
+//    @Scheduled(fixedDelay = 10_000) // каждые 10 секунд после завершения предыдущего
+    @Scheduled(fixedDelayString = "${generator.interval-ms}")
     public void generateEvent() {
 
         Optional<ProductSnapshot> randomProduct = productDao.findRandomSnapshot();
         if (randomProduct.isEmpty()) {
-            log.debug("No products in DB - skipping event generation");
+            log.debug("No products in DB, skipping event generation");
             return;
         }
         ProductSnapshot productSnapshot = randomProduct.get();
@@ -50,7 +53,7 @@ public class ProductEventGenerator {
         int updated = productDao.updatePriceAndStock(
                 productId, newPrice, newStock, LocalDate.now(ZoneOffset.UTC));
         if (updated == 0) {
-            log.debug("Product {} disappeared before update - skipping event", productId);
+            log.debug("Product {} disappeared before update, skipping event", productId);
             return;
         }
 
@@ -62,7 +65,7 @@ public class ProductEventGenerator {
                 Instant.now() // UTC - RFC 3339
         );
 
-        kafkaTemplate.send(TOPIC, productId.toString(), event)
+        kafkaTemplate.send(topic, productId.toString(), event)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         log.error("Failed to send event for product {}", productId, ex);
