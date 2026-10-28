@@ -4,21 +4,27 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import service_generator.dao.ProductDaoImpl;
-import service_generator.entity.ProductEntity;
-//import service_generator.repository.ProductRepository;
+//import service_generator.entity.ProductEntity;
+import service_generator.entity.ProductSnapshot;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
-//    private final ProductRepository productRepository;
     private final ProductDaoImpl productDaoImpl;
-//    private final ProductEntity productEntity;
+
+    @Override
+    @Transactional
+    public Optional<ProductSnapshot> findRandomSnapshot() {return productDaoImpl.findRandomSnapshot();};
+
+//    @Override
+//    @Transactional
+//    public Optional<ProductEntity> findRandom() { return productDaoImpl.findRandom(); }
 
     @Override
     @Transactional
@@ -26,11 +32,11 @@ public class ProductServiceImpl implements ProductService {
         return productDaoImpl.updatePriceAndStock(id, price, availableStock, lastUpdate);
     }
 
-    @Override
-    @Transactional
-    public List<ProductEntity> findAll() {
-        return productDaoImpl.findAll();
-    }
+//    @Override
+//    @Transactional
+//    public List<ProductEntity> findAll() {
+//        return productDaoImpl.findAll();
+//    }
 
 
 //    @Transactional

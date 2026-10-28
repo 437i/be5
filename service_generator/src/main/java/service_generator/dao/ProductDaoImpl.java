@@ -4,13 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
-import service_generator.entity.ProductEntity;
+//import service_generator.entity.ProductEntity;
+import service_generator.entity.ProductSnapshot;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -19,37 +20,55 @@ public class ProductDaoImpl implements ProductDao {
 
     private final NamedParameterJdbcTemplate jdbc;
 
-    private ProductEntity mapRow(ResultSet resultSet, int rowNum) throws SQLException {
-        return ProductEntity.builder()
-                .id(resultSet.getObject("id", UUID.class))
-                .name(resultSet.getString("name"))
-                .category(resultSet.getString("category"))
-                .price(resultSet.getBigDecimal("price"))
-                .availableStock(resultSet.getInt("available_stock"))
-                .lastUpdateDate(resultSet.getDate("last_update_date") != null
-                        ? resultSet.getDate("last_update_date").toLocalDate() : null)
-                .supplierId(resultSet.getObject("supplier_id", UUID.class))
-                .imageId(resultSet.getObject("image_id", UUID.class))
-                .build();
+//    private ProductEntity mapRow(ResultSet resultSet, int rowNum) throws SQLException {
+//        return ProductEntity.builder()
+//                .id(resultSet.getObject("id", UUID.class))
+//                .name(resultSet.getString("name"))
+//                .category(resultSet.getString("category"))
+//                .price(resultSet.getBigDecimal("price"))
+//                .availableStock(resultSet.getInt("available_stock"))
+//                .lastUpdateDate(resultSet.getDate("last_update_date") != null
+//                        ? resultSet.getDate("last_update_date").toLocalDate() : null)
+//                .supplierId(resultSet.getObject("supplier_id", UUID.class))
+//                .imageId(resultSet.getObject("image_id", UUID.class))
+//                .build();
+//    }
+
+    @Override
+    public Optional<ProductSnapshot> findRandomSnapshot() {
+        String sql = """
+        SELECT id, price, available_stock
+          FROM product
+         ORDER BY random()
+         LIMIT 1
+        """;
+        return jdbc.query(sql, (rs, i) -> new ProductSnapshot(
+                        rs.getObject("id", UUID.class),
+                        rs.getBigDecimal("price"),
+                        rs.getInt("available_stock")))
+                .stream().findFirst();
     }
 
-//    public UUID insert(ProductEntity product) {
-//        UUID id = UUID.randomUUID();
+//    @Override
+//    public Optional<ProductEntity> findRandom() {
 //        String sql = """
-//            INSERT INTO product (id, name, category, price, available_stock,
-//                                 last_update_date, supplier_id, image_id)
-//            VALUES (:id, :name, :category, :price, :stock, :lastUpdate, :supplierId, :imageId)
-//            """;
-//        jdbc.update(sql, new MapSqlParameterSource()
-//                .addValue("id", id)
-//                .addValue("name", product.getName())
-//                .addValue("category", product.getCategory())
-//                .addValue("price", product.getPrice())
-//                .addValue("stock", product.getAvailableStock())
-//                .addValue("lastUpdate", product.getLastUpdateDate())
-//                .addValue("supplierId", product.getSupplierId())
-//                .addValue("imageId", product.getImageId()));
-//        return id;
+//        SELECT id, price, available_stock
+//          FROM product
+//         ORDER BY random()
+//         LIMIT 1
+//        """;
+//        return jdbc.query(sql, (rs, i) -> ProductEntity.builder()
+//                        .id(rs.getObject("id", UUID.class))
+//                        .price(rs.getBigDecimal("price"))
+//                        .availableStock(rs.getInt("available_stock"))
+//                        .build())
+//                .stream().findFirst();
+//    }
+
+//    @Override
+//    public Optional<ProductEntity> findRandom() {
+//        String sql = "SELECT * FROM product ORDER BY random() LIMIT 1";
+//        return jdbc.query(sql, this::mapRow).stream().findFirst();
 //    }
 
     @Override
@@ -68,17 +87,17 @@ public class ProductDaoImpl implements ProductDao {
                 .addValue("lastUpdate", lastUpdate));
     }
 
-//    public Optional<ProductEntity> findById(UUID id) {
+//    @Override
+//    public List<ProductEntity> findAll() {
+//        String sql = "SELECT * FROM product";
+//        return jdbc.query(sql, this::mapRow);
+//    }
+
+    //    public Optional<ProductEntity> findById(UUID id) {
 //        String sql = "SELECT * FROM product WHERE id = :id";
 //        return jdbc.query(sql, new MapSqlParameterSource("id", id), this::mapRow)
 //                .stream().findFirst();
 //    }
-
-    @Override
-    public List<ProductEntity> findAll() {
-        String sql = "SELECT * FROM product";
-        return jdbc.query(sql, this::mapRow);
-    }
 
 //    public List<ProductEntity> findAllAvailable() {
 //        String sql = "SELECT * FROM product WHERE available_stock > 0";
@@ -92,10 +111,6 @@ public class ProductDaoImpl implements ProductDao {
 //                .addValue("amount", amount));
 //    }
 
-//    public void delete(UUID id) {
-//        jdbc.update("DELETE FROM product WHERE id = :id",
-//                new MapSqlParameterSource("id", id));
-//    }
 
 //    public boolean existsById(UUID id) {
 //        Integer count = jdbc.queryForObject(
@@ -108,12 +123,5 @@ public class ProductDaoImpl implements ProductDao {
 //        return jdbc.queryForObject(
 //                "SELECT available_stock FROM product WHERE id = :id",
 //                new MapSqlParameterSource("id", id), Integer.class);
-//    }
-
-//    public void updateImageId(UUID productId, UUID imageId) {
-//        String sql = "UPDATE product SET image_id = :imageId WHERE id = :productId";
-//        jdbc.update(sql, new MapSqlParameterSource()
-//                .addValue("productId", productId)
-//                .addValue("imageId", imageId));
 //    }
 }
