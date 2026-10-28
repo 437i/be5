@@ -1,4 +1,4 @@
-package service_generator.entity;
+package service_generator.snapshot;
 
 import java.math.BigDecimal;
 import java.util.UUID;

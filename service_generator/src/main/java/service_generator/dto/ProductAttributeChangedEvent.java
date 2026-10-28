@@ -24,17 +24,3 @@ public record ProductAttributeChangedEvent(
         @JsonProperty("occurred_at")
         Instant occurredAt
 ) {}
-
-
-//package service_generator.dto;
-//
-//import java.math.BigDecimal;
-//import java.time.Instant;
-//import java.util.UUID;
-//
-//public record ProductAttributeChangedEvent(
-//        UUID productId,
-//        BigDecimal newPrice,
-//        Integer newStock,
-//        Instant changedAt
-//) {}

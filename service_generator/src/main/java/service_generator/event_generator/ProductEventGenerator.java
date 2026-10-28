@@ -5,10 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import service_generator.dao.ProductDaoImpl;
 import service_generator.dto.ProductAttributeChangedEvent;
-//import service_generator.entity.ProductEntity;
-import service_generator.entity.ProductSnapshot;
-import service_generator.service.ProductServiceImpl;
+import service_generator.snapshot.ProductSnapshot;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -16,7 +15,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -27,7 +25,7 @@ public class ProductEventGenerator {
 
     private static final String TOPIC = "product-attributes-changed";
 
-    private final ProductServiceImpl productServiceImpl;
+    private final ProductDaoImpl productDao;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 //    private final Random random = new Random();
 
@@ -35,12 +33,7 @@ public class ProductEventGenerator {
     public void generateEvent() {
 
         // (через список ID или random offset в БД)
-        // List<ProductEntity> products = productServiceImpl.findAll();
-        // if (products.isEmpty()) return;
-
-        // ProductEntity productEntity = products.get(random.nextInt(products.size()));
-
-        Optional<ProductSnapshot> randomProduct = productServiceImpl.findRandomSnapshot();
+        Optional<ProductSnapshot> randomProduct = productDao.findRandomSnapshot();
         if (randomProduct.isEmpty()) {
             log.debug("No products in DB — skipping event generation");
             return;
@@ -64,7 +57,7 @@ public class ProductEventGenerator {
 //        productSnapshot.price(newPrice);
 //        productSnapshot.availableStock(newStock);
 
-        int updated = productServiceImpl.updatePriceAndStock(
+        int updated = productDao.updatePriceAndStock(
                 productId, newPrice, newStock, LocalDate.now(ZoneOffset.UTC));
         if (updated == 0) {
             log.debug("Product {} disappeared before update — skipping event", productId);
@@ -92,48 +85,3 @@ public class ProductEventGenerator {
                 });
     }
 }
-
-
-//@Slf4j
-//@Service
-//@RequiredArgsConstructor
-//public class ProductEventGenerator {
-//
-//    private final ProductRepository productRepository;
-//    private final KafkaTemplate<String, Object> kafkaTemplate;
-//
-//    @Scheduled(fixedDelay = 10_000)
-//    public void generateEvent() {
-//        List<ProductEntity> products = productRepository.findAll();
-//        if (products.isEmpty()) {
-//            log.debug("No products to generate event for");
-//            return;
-//        }
-//
-//        ProductEntity product = products.get(
-//                ThreadLocalRandom.current().nextInt(products.size()));
-//
-//        BigDecimal newPrice = product.getPrice()
-//                .multiply(BigDecimal.valueOf(0.9 + ThreadLocalRandom.current().nextDouble() * 0.2))
-//                .setScale(2, RoundingMode.HALF_UP);
-//
-//        int newStock = ThreadLocalRandom.current().nextInt(100);
-//
-//        product.setPrice(newPrice);
-//        product.setAvailableStock(newStock);
-//        productRepository.save(product);
-//
-//        ProductAttributeChangedEvent event = new ProductAttributeChangedEvent(
-//                product.getId(), newPrice, newStock, Instant.now());
-//
-//        kafkaTemplate.send("product-attributes-changed", product.getId().toString(), event)
-//                .whenComplete((result, ex) -> {
-//                    if (ex != null) {
-//                        log.error("Failed to send event for product {}", product.getId(), ex);
-//                    } else {
-//                        log.info("Sent event for product {}: price={}, stock={}",
-//                                product.getId(), newPrice, newStock);
-//                    }
-//                });
-//    }
-//}
