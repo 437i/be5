@@ -20,7 +20,7 @@ public class ProductDaoImpl implements ProductDao {
     public Optional<ProductSnapshot> findRandomSnapshot() {
         String sql = """
         SELECT id, price, available_stock
-          FROM product
+          FROM products
          ORDER BY random()
          LIMIT 1
         """;
