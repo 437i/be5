@@ -13,8 +13,6 @@ import service_generator.snapshot.ProductSnapshot;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -30,7 +28,6 @@ public class ProductEventGenerator {
     private final ProductDaoImpl productDao;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-//    @Scheduled(fixedDelay = 10_000) // каждые 10 секунд после завершения предыдущего
     @Scheduled(fixedDelayString = "${generator.interval-ms}")
     public void generateEvent() {
 
@@ -42,20 +39,11 @@ public class ProductEventGenerator {
         ProductSnapshot productSnapshot = randomProduct.get();
         UUID productId = productSnapshot.id();
 
-        // BigDecimal newPrice = productSnapshot.price().multiply(BigDecimal.valueOf(0.9 + random.nextDouble() * 0.2)); // +10% or -10%
-
         BigDecimal newPrice = productSnapshot.price()
                 .multiply(BigDecimal.valueOf(0.9 + ThreadLocalRandom.current().nextDouble() * 0.2))
-                .setScale(2, RoundingMode.HALF_UP);
+                .setScale(2, RoundingMode.HALF_UP); // +10% or -10%
 
         int newStock = ThreadLocalRandom.current().nextInt(100); // 0 - 99
-
-        int updated = productDao.updatePriceAndStock(
-                productId, newPrice, newStock, LocalDate.now(ZoneOffset.UTC));
-        if (updated == 0) {
-            log.debug("Product {} disappeared before update, skipping event", productId);
-            return;
-        }
 
         ProductAttributeChangedEvent event = new ProductAttributeChangedEvent(
                 UUID.randomUUID(),
